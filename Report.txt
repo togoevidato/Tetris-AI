@@ -1,0 +1,99 @@
+Exercise 1:
+Bug Fixes:
+
+Bug #1: Incorrect Loop Order in Column Height Calculation
+Location: evaluateBoard() function,
+Issue: The nested loop structure iterates through rows (Y-axis) in the outer loop and columns (X-axis) in the inner loop. 
+Fix: Swap the loop order to iterate columns first, then rows.
+
+Bug #2: Missing Piece Width Calculation Function
+Location: getPossibleMoves() function,
+Issue: The code uses piece.type.size to determine horizontal boundaries. However, size represents the bounding box size (e.g., 3x3 or 4x4), 
+not the actual rotated piece width. When a piece rotates, its effective width changes. 
+For example, an I-piece has size=4, but when horizontal it spans 4 blocks, and when vertical it only spans 1 block.
+Fix: Implement a function to calculate the actual width of a rotated piece:
+
+
+Bug #3: Lack of Proper Board State Isolation
+Location: getPossibleMoves() and related functions
+Issue: The move generation logic directly uses the global game state (blocks variable) and the occupied() function, 
+which checks against the live game board. This creates coupling between simulation and actual game state, 
+making it impossible to properly evaluate hypothetical moves without affecting or being affected by the current game state.
+Fix: Create a simulation context that encapsulates board state:
+
+Bug #4: Improper Move Generation with Simulation Context
+Location: getPossibleMoves() and selectBestMove() functions
+Issue: The getPossibleMoves() function must use the simulation context, but the context is never initialized with the current board state before generating moves.
+Fix: Initialize the simulation context before generating moves
+
+
+Bug #5: Insufficient X-axis Range for Move Generation
+Location: getPossibleMoves() function
+Issue: The loop starts at x = 0, but some piece rotations have blocks that extend to the left of their origin point. 
+For example, certain rotations of the J, L, and T pieces have blocks at negative offsets relative to their (x, y) position.
+Fix: Expand the X-range to include negative starting positions:
+
+Bug #6: Off-by-One Error in Line Removal
+Location: removeLines() function in game.js
+Issue: The loop starts at y = ny, which is one index beyond the valid board range (valid indices are 0 to ny-1). 
+This causes the initial check to access getBlock(x, ny), which returns null for out-of-bounds access, preventing the first row from ever being detected as complete.
+Fix: Start the loop at the last valid index:
+
+Bug #7: Incorrect Value in Line Removal
+Location: removeLine() function in game.js, line 305
+Issue: When clearing a line, the code sets empty blocks to null. However, the board initialization function (initializeBoard()) and the rest of the codebase
+use 0 to represent empty blocks, not null. This inconsistency causes evaluation functions that check board[x][y] === 0 to fail.
+Fix: Use 0 consistently for empty blocks:
+
+
+Exercise 2:
+
+These features were added on top of the classical 4-term heuristic (height, lines, holes, bumpiness):
+(1) Max Column Height (maxHeight)
+Measures the height of the tallest column on the board.
+Helps the AI avoid creating extremely tall stacks in the center, which often cause sudden deaths.
+This provides a global sense of danger beyond aggregate height alone.
+(2) Well Depth (wellSum)
+A well is a column whose height is lower than both neighbors.
+Deep wells lead to “waiting for the I-piece”, which frequently causes late-game collapse.
+Penalizing wells reduces these risky long vertical gaps.
+What I Did With the Weights
+I took the original well-known Tetris heuristic weights and gently adjusted them so that:
+the new features contribute,
+but they do not overpower the original successful behavior.
+This required keeping the original 4-term balance mostly intact:
+- aggregate height penalty
++ line clear reward
+- holes penalty
+- bumpiness penalty
+Then I introduced very small negative weights for the new features:
+(a) Small penalty for maxHeight
+discourages extremely tall central towers without shifting the entire gameplay style
+(b) Small penalty for wellSum
+discourages deep wells
+reduces risky "I-piece tunnels"
+but light enough not to reduce high averages
+
+As I found out, the initial weights were well-known and a good practise, so I tended to stay around those numbers, but added extra features
+to help out a little. The average score in 11 games was 110,944 and average rows 867, however there could still be a situation,
+where the game would lose abruptly. I tried fixing this issue and tweaked weights multiple times, however every one of those gave lower 
+average but higher consistencys. 
+for example:
+const wHeight    = -0.48;   
+const wLines     =  0.84;   
+const wHoles     = -0.44;   
+const wBumpiness = -0.22;   
+const wMaxH      = -0.04;   
+const wWells     = -0.095;  
+Average score: 78,445
+Average rows: 615
+But the consistency was better.
+
+However the given one is a much better version than the original one, just with bug fixes, which had an average of 52931 with an average of 416 rows
+
+
+Exercise 3:
+
+I implemented a beam search algorithm, which looks at only 2 next pieces, which can be changed but for the sake of the game you are not even supposed to
+see any pieces in the future, thats why I chose 2 as depth. I let it run up to approximately 7000 rows and 1000000 score and the game hadn't lost yet,
+so I assumed it was never going to lose.
